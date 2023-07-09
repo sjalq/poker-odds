@@ -122,10 +122,10 @@ let safeSeqMaxBy f seq =
 
 let setGroupBy f set =
     set
-    |> Set.toSeq
-    |> Seq.groupBy f
-    |> Seq.map (fun (k, v) -> (k, Set.ofSeq v))
-    |> Set.ofSeq
+    |> Set.toArray
+    |> Array.groupBy f
+    |> Array.map (fun (k, v) -> (k, Set.ofSeq v))
+    |> Set.ofArray
 
 
 let rec bestPokerHand (visibleCards: Card Set) =
@@ -135,10 +135,9 @@ let rec bestPokerHand (visibleCards: Card Set) =
     let bestN_ofAKind n cards =
         cards
         |> setGroupBy (fun (_, rank) -> rank)
-        |> Seq.filter (fun (_, cards) -> Set.count cards = n)
-        |> Seq.map (fun (rank, _) -> rank)
+        |> Set.filter (fun (_, cards) -> Set.count cards = n)
+        |> Set.map (fun (rank, _) -> rank)
         |> safeSeqMax
-        //|> log "bestN_ofAKind"
 
     let bestHighCard =
         visibleCards
