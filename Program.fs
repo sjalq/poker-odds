@@ -129,13 +129,16 @@ let setGroupBy f set =
 
 
 let rec bestPokerHand (visibleCards: Card Set) =
+    // visibleCards |> log "visibleCards" |> ignore
+
+
     let bestN_ofAKind n cards =
         cards
         |> setGroupBy (fun (_, rank) -> rank)
         |> Seq.filter (fun (_, cards) -> Set.count cards = n)
         |> Seq.map (fun (rank, _) -> rank)
         |> safeSeqMax
-        |> log "bestN_ofAKind"
+        //|> log "bestN_ofAKind"
 
     let bestHighCard =
         visibleCards
@@ -259,7 +262,9 @@ let randomHands myHand visibleCards numberOfOpponents =
 let winningHand hands visibleCards =
     hands
     |> List.map (fun hand -> bestPokerHand (Set.ofList (hand @ visibleCards)))
+    //|> log "hands"
     |> safeSeqMax
+    //|> log "winningHand"
 
 let stringToSuit s =
     match s with
@@ -325,12 +330,14 @@ let simulatePossibleHands simulations myHand visibleCards numberOfOpponents =
     [ 1..simulations ]
     |> List.map (fun _ ->
         let deck = remainingDeck |> shuffle
+        // deck |> List.length |> log "deck length" |> ignore
         let (opponentHands, deck) = pick (2 * numberOfOpponents) deck
         let opponentHands = opponentHands |> List.chunkBySize 2
-        let winningHand = winningHand (myHand :: opponentHands) visibleCards
+        let extraVisibleCards = deck |> List.take (5 - List.length visibleCards)
+        let winningHand = winningHand (myHand :: opponentHands) (visibleCards @ extraVisibleCards)
 
         match winningHand with
-        | Some hand when hand = bestPokerHand (Set.ofList myHand) -> 1
+        | Some hand when hand = bestPokerHand (Set.ofList (myHand @ visibleCards)) -> 1
         | _ -> 0)
     |> List.sum
 
@@ -352,7 +359,7 @@ let main argv =
             printfn "Visible cards: %A" visibleCards
             printfn "Number of opponents: %d" numberOfOpponents
             printfn "Number of simulations: %d" simulations
-            printfn "My best hand: %A" (bestPokerHand (Set.ofList myHand))
+            printfn "My best hand: %A" (bestPokerHand (Set.ofList (myHand @ visibleCards)))
             printfn "Probability of winning: %f" probability
             0
         | Error e, _, _, _ ->
