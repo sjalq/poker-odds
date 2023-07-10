@@ -342,6 +342,15 @@ let simulatePossibleHands simulations myHand visibleCards numberOfOpponents =
 
 
 
+let startTimer () =
+    let timer = System.Diagnostics.Stopwatch()
+    timer.Start()
+    timer
+
+let stopTimer (timer:Diagnostics.Stopwatch) =
+    timer.Stop()
+    timer.ElapsedMilliseconds
+
 [<EntryPoint>]
 let main argv =
     match argv with
@@ -352,6 +361,7 @@ let main argv =
               safeStringToInt32 simulations
             with
         | Ok myHand, Ok visibleCards, Ok numberOfOpponents, Ok simulations ->
+            let timer = startTimer ()
             let wins = simulatePossibleHands simulations myHand visibleCards numberOfOpponents
             let probability = float wins / float simulations
             printfn "My hand: %A" myHand
@@ -360,6 +370,8 @@ let main argv =
             printfn "Number of simulations: %d" simulations
             printfn "My best hand: %A" (bestPokerHand (Set.ofList (myHand @ visibleCards)))
             printfn "Probability of winning: %f" probability
+            float simulations / float (stopTimer timer)  |> log "Time" |> ignore
+
             0
         | Error e, _, _, _ ->
             printfn "Error parsing your hand: %s" e
