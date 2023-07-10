@@ -78,6 +78,9 @@ let fullDeck =
               yield (suit, rank) ]
 
 
+
+
+
 let log msg v =
     printfn "%s: %A" msg v
     v
@@ -133,11 +136,15 @@ let rec bestPokerHand (visibleCards: Card Set) =
 
 
     let bestN_ofAKind n cards =
-        cards
-        |> setGroupBy (fun (_, rank) -> rank)
-        |> Set.filter (fun (_, cards) -> Set.count cards = n)
-        |> Set.map (fun (rank, _) -> rank)
-        |> safeSeqMax
+        try
+            cards
+            |> setGroupBy (fun (_, rank) -> rank)
+            |> Set.filter (fun (_, cards) -> Set.count cards = n)
+            |> Set.map (fun (rank, _) -> rank)
+            |> Set.maxElement 
+            |> Some
+        with
+        | _ -> None
 
     let bestHighCard =
         visibleCards
@@ -187,24 +194,32 @@ let rec bestPokerHand (visibleCards: Card Set) =
         | _ -> None
 
     let bestFlush =
-        visibleCards
-        |> Set.toSeq
-        |> Seq.groupBy (fun (suit, _) -> suit)
-        |> Seq.filter (fun (_, cards) -> Seq.length cards >= 5)
-        |> Seq.map (fun (suit, _) -> suit)
-        |> safeSeqMax
-        |> Option.map Flush
+        try
+            visibleCards
+            |> Set.toSeq
+            |> Seq.groupBy (fun (suit, _) -> suit)
+            |> Seq.filter (fun (_, cards) -> Seq.length cards >= 5)
+            |> Seq.map (fun (suit, _) -> suit)
+            |> Seq.max
+            |> Flush
+            |> Some
+        with
+        | _ -> None
 
 
     let bestStraight =
-        visibleCards
-        |> Set.map snd
-        |> Seq.sortBy (fun rank -> rank)
-        |> Seq.windowed 5
-        |> Seq.filter (fun ranks -> Seq.forall2 (fun a b -> nextRank a = b) ranks (Seq.skip 1 ranks))
-        |> Seq.map (fun ranks -> Seq.max ranks)
-        |> safeSeqMax
-        |> Option.map Straight
+        try
+            visibleCards
+            |> Set.map snd
+            |> Seq.sortBy (fun rank -> rank)
+            |> Seq.windowed 5
+            |> Seq.filter (fun ranks -> Seq.forall2 (fun a b -> nextRank a = b) ranks (Seq.skip 1 ranks))
+            |> Seq.map (fun ranks -> Seq.max ranks)
+            |> Seq.max
+            |> Straight
+            |> Some
+        with
+        | _ -> None
 
     let bestStraightFlush =
         match bestFlush, bestStraight with
@@ -259,11 +274,15 @@ let randomHands myHand visibleCards numberOfOpponents =
 
 
 let winningHand hands visibleCards =
-    hands
-    |> List.map (fun hand -> bestPokerHand (Set.ofList (hand @ visibleCards)))
-    //|> log "hands"
-    |> safeSeqMax
-    //|> log "winningHand"
+    try 
+        hands
+        |> List.map (fun hand -> bestPokerHand (Set.ofList (hand @ visibleCards)))
+        //|> log "hands"
+        |> List.max
+        |> Some
+        //|> log "winningHand"
+    with
+    | _ -> None
 
 let stringToSuit s =
     match s with
@@ -342,6 +361,15 @@ let simulatePossibleHands simulations myHand visibleCards numberOfOpponents =
 
 
 
+let startTimer () =
+    let timer = System.Diagnostics.Stopwatch()
+    timer.Start()
+    timer
+
+let stopTimer (timer:Diagnostics.Stopwatch) =
+    timer.Stop()
+    timer.ElapsedMilliseconds
+
 [<EntryPoint>]
 let main argv =
     match argv with
@@ -352,6 +380,7 @@ let main argv =
               safeStringToInt32 simulations
             with
         | Ok myHand, Ok visibleCards, Ok numberOfOpponents, Ok simulations ->
+            let timer = startTimer ()
             let wins = simulatePossibleHands simulations myHand visibleCards numberOfOpponents
             let probability = float wins / float simulations
             printfn "My hand: %A" myHand
@@ -360,6 +389,8 @@ let main argv =
             printfn "Number of simulations: %d" simulations
             printfn "My best hand: %A" (bestPokerHand (Set.ofList (myHand @ visibleCards)))
             printfn "Probability of winning: %f" probability
+            float simulations / float (stopTimer timer)  |> log "Time" |> ignore
+
             0
         | Error e, _, _, _ ->
             printfn "Error parsing your hand: %s" e
