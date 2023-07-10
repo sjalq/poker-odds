@@ -1,13 +1,6 @@
 bin/
 obj/
 traces/
-poker-odds_20230709_223713.nettrace
-poker-odds_20230709_223713.speedscope.json
-poker-odds_20230709_224536.nettrace
-poker-odds_20230709_224536.speedscope.json
-poker-odds_20230709_224726.nettrace
-poker-odds_20230709_224726.speedscope.json
-poker-odds_20230709_230132.nettrace
-poker-odds_20230709_230132.speedscope.json
-poker-odds_20230709_230151.nettrace
-poker-odds_20230709_230151.speedscope.json
+*.nettrace
+*.speedscope.json
+
