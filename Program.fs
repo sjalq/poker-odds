@@ -1,4 +1,5 @@
 ﻿open System
+open FSharpPlus
 
 // For more information see https://aka.ms/fsharp-console-apps
 printfn "Hello from F#"
@@ -110,10 +111,10 @@ let removeSuit suit deck =
     deck |> List.filter (fun (s, _) -> s <> suit)
 
 
-let safeSeqMax seq =
-    match Seq.isEmpty seq with
-    | true -> None
-    | false -> Some(Seq.max seq)
+// let safeSeqMax seq =
+//     match Seq.isEmpty seq with
+//     | true -> None
+//     | false -> Some(Seq.max seq)
 
 let safeSeqMaxBy f seq =
     match Seq.isEmpty seq with
@@ -130,45 +131,56 @@ let setGroupBy f set =
 
 let rec bestPokerHand (visibleCards: Card Set) =
     // visibleCards |> log "visibleCards" |> ignore
+    let rankedCards = 
+        visibleCards 
+        |> Seq.groupBy (fun (_, rank) -> rank)
 
-
-    let bestN_ofAKind n cards =
+    let genericBestNofAKind n cards = // exists for performance reasons
         cards
-        |> setGroupBy (fun (_, rank) -> rank)
-        |> Set.filter (fun (_, cards) -> Set.count cards = n)
-        |> Set.map (fun (rank, _) -> rank)
-        |> safeSeqMax
+        |> Seq.groupBy (fun (_, rank) -> rank)
+        |> Seq.filter (fun (_, cards) -> (cards |> Seq.distinct |> Seq.length) = n)
+        |> Seq.map (fun (rank, _) -> rank)
+        |> Seq.max
 
-    let bestHighCard =
-        visibleCards
-        |> bestN_ofAKind 1
-        |> Option.map HighCard
+    let bestN_ofAKind n =
+        rankedCards
+        |> Seq.filter (fun (_, cards) -> (cards |> Seq.distinct |> Seq.length) = n)
+        |> Seq.map (fun (rank, _) -> rank)
+        |> Seq.max
 
-    let bestPair = visibleCards |> bestN_ofAKind 2 |> Option.map Pair
+    let bestHighCard () =
+            bestN_ofAKind 1
+            |> HighCard
 
-    let bestThreeOfAKind =
-        visibleCards
-        |> bestN_ofAKind 3
-        |> Option.map ThreeOfAKind
+    let bestPair () = 
+        bestN_ofAKind 2 
+        |> Pair
 
-    let bestFourOfAKind =
-        visibleCards
-        |> bestN_ofAKind 4
-        |> Option.map FourOfAKind
+    let bestThreeOfAKind () =
+        bestN_ofAKind 3
+        |> ThreeOfAKind
+
+    let bestFourOfAKind () =
+        bestN_ofAKind 4
+        |> FourOfAKind
 
     let bestTwoPair =
-        let secondBestPair =
-            match bestPair with
-            | Some (Pair rank) ->
-                visibleCards
-                |> Set.toList
-                |> removeRank rank
-                |> Set.ofList
-                |> bestN_ofAKind 2
-            | _ -> None
+        try 
+            let secondBestPair =
+                match bestPair () with
+                | Pair rank ->
+                    visibleCards
+                    |> Set.toList
+                    |> removeRank rank
+                    |> Set.ofList
+                    |> genericBestNofAKind 2
+                    |> Some 
+                | _ -> None
 
-        match bestPair, secondBestPair with
-        | Some (Pair best), Some secondBest -> Some(TwoPair(best, secondBest))
+            match bestPair (), secondBestPair with
+            | Pair best, Some secondBest -> Some(TwoPair(best, secondBest))
+            | _ -> None
+        with 
         | _ -> None
 
     let bestFullHouse =
@@ -179,7 +191,7 @@ let rec bestPokerHand (visibleCards: Card Set) =
                 |> Set.toList
                 |> removeRank rank
                 |> Set.ofList
-                |> bestN_ofAKind 2
+                |> genericBestNofAKind 2
             | _ -> None
 
         match bestPair, bestThreeOfAKind with

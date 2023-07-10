@@ -1,13 +1,13 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net7.0</TargetFramework>
     <RootNamespace>poker_odds</RootNamespace>
   </PropertyGroup>
-
   <ItemGroup>
     <Compile Include="Program.fs" />
+    <PackageReference Include="FsharpPlus" Version="1.4.1" />
   </ItemGroup>
-
+  <Import Project=".paket\Paket.Restore.targets" />
 </Project>

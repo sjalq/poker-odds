@@ -11,3 +11,9 @@ poker-odds_20230709_230132.nettrace
 poker-odds_20230709_230132.speedscope.json
 poker-odds_20230709_230151.nettrace
 poker-odds_20230709_230151.speedscope.json
+FSharp.Core.4.6.2/
+FSharpPlus.1.4.1/
+System.ValueTuple.4.4.0/
+/*.json
+/*.nettrace
+.paket/
