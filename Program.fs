@@ -118,8 +118,20 @@ let log msg v =
 
 let rnd = System.Random()
 
-let shuffle deck =
+let slowShuffle deck =
     deck |> List.sortBy (fun _ -> rnd.Next())
+
+let shuffle deck =
+    let deck = deck |> List.toArray
+    let mutable i = deck.Length
+    while i > 1 do
+        let j = rnd.Next(i)
+        i <- i - 1
+        let temp = deck.[i]
+        deck.[i] <- deck.[j]
+        deck.[j] <- temp
+
+    deck |> Array.toList
 
 let pick n deck =
     let picked = deck |> List.take n
@@ -180,8 +192,8 @@ let setGroupBy f set =
     |> Set.ofArray
 
 
-let inline fastCountRanks n (cards: Card array) =
-    let counts = Array.zeroCreate 13
+let inline fastCountRanks (counts:Int32 array) n (cards: Card array) =
+    //let counts = Array.zeroCreate 13
 
     for i in 0 .. (Array.length cards - 1) do
         let (_, rank) = cards.[i]
@@ -200,17 +212,17 @@ let inline fastCountRanks n (cards: Card array) =
         |> Rank.fromInt 
         |> Some
 
-let inline fastBestStraight (cards: Card array) =
-    let ranks = Array.zeroCreate 13
+let inline fastBestStraight (counts:Int32 array) (cards: Card array) =
+    //let counts = Array.zeroCreate 13
 
     for i in 0 .. (Array.length cards - 1) do
         let (_, rank) = cards.[i]
         let rankInt = rank.toInt - 2
-        ranks.[rankInt] <- ranks.[rankInt] + 1
+        counts.[rankInt] <- counts.[rankInt] + 1
 
     let mutable highestStraightRank = 0
     for i in 0 .. 8 do
-        if ranks.[i] > 0 && ranks.[i + 1] > 0 && ranks.[i + 2] > 0 && ranks.[i + 3] > 0 && ranks.[i + 4] > 0 then
+        if counts.[i] > 0 && counts.[i + 1] > 0 && counts.[i + 2] > 0 && counts.[i + 3] > 0 && counts.[i + 4] > 0 then
             highestStraightRank <- i + 2 + 4
 
     if highestStraightRank < 6 then
@@ -234,9 +246,10 @@ let slowBestStraight cards =
 
 let bestPokerHand (visibleCards: Card Set) =
     let visibleCards = visibleCards |> Set.toArray
+    let counts = Array.zeroCreate 13
 
-    let inline bestN_ofAKind n cards =
-        fastCountRanks n cards
+    let bestN_ofAKind n cards =
+        fastCountRanks counts n cards
 
     let bestHighCard =
         visibleCards
@@ -284,7 +297,7 @@ let bestPokerHand (visibleCards: Card Set) =
         |> Option.map Flush
 
     let bestStraight =
-        fastBestStraight visibleCards 
+        fastBestStraight counts visibleCards 
 
     let bestStraightFlush =
         match bestFlush, bestStraight with
@@ -410,12 +423,12 @@ let simulatePossibleHands simulations myHand visibleCards numberOfOpponents =
 
     [| 1..simulations |]
     |> Array.Parallel.map (fun _ ->
+    //|> Array.map (fun _ ->
         let deck = remainingDeck |> shuffle
         let (opponentHands, deck) = pick (2 * numberOfOpponents) deck
         let opponentHands = opponentHands |> List.chunkBySize 2
         let extraVisibleCards = deck |> List.take (5 - List.length visibleCards)
 
-        let counterArray = Array.zeroCreate 13
         let winningHand =
             winningHand (myHand :: opponentHands) (visibleCards @ extraVisibleCards)
 
