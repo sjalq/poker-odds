@@ -24,7 +24,7 @@ type Rank =
     | King
     | Ace
 
-    member x.toInt =
+    member inline x.toInt =
         match x with
         | Two -> 2
         | Three -> 3
@@ -40,7 +40,7 @@ type Rank =
         | King -> 13
         | Ace -> 14
 
-    static member fromInt i =
+    static member inline fromInt i =
         match i with
         | 2 -> Two
         | 3 -> Three
@@ -180,7 +180,7 @@ let setGroupBy f set =
     |> Set.ofArray
 
 
-let fastCountRanks n (cards: Card array) =
+let inline fastCountRanks n (cards: Card array) =
     let counts = Array.zeroCreate 13
 
     for i in 0 .. (Array.length cards - 1) do
@@ -197,25 +197,46 @@ let fastCountRanks n (cards: Card array) =
         None
     else
         highestRankWithN 
-        // |> log "highestRankWithN"
         |> Rank.fromInt 
         |> Some
+
+let inline fastBestStraight (cards: Card array) =
+    let ranks = Array.zeroCreate 13
+
+    for i in 0 .. (Array.length cards - 1) do
+        let (_, rank) = cards.[i]
+        let rankInt = rank.toInt - 2
+        ranks.[rankInt] <- ranks.[rankInt] + 1
+
+    let mutable highestStraightRank = 0
+    for i in 0 .. 8 do
+        if ranks.[i] > 0 && ranks.[i + 1] > 0 && ranks.[i + 2] > 0 && ranks.[i + 3] > 0 && ranks.[i + 4] > 0 then
+            highestStraightRank <- i + 2 + 4
+
+    if highestStraightRank < 6 then
+        None
+    else
+        highestStraightRank
+        |> Rank.fromInt
+        |> Straight
+        |> Some
+
+let slowBestStraight cards = 
+    cards
+    |> Array.map snd
+    |> Seq.sortBy (fun rank -> rank)
+    |> Seq.windowed 5
+    |> Seq.filter (fun ranks -> Seq.forall2 (fun a b -> nextRank a = b) ranks (Seq.skip 1 ranks))
+    |> Seq.map (fun ranks -> Seq.max ranks)
+    |> safeSeqMax
+    |> Option.map Straight
 
 
 let bestPokerHand (visibleCards: Card Set) =
     let visibleCards = visibleCards |> Set.toArray
 
-    let bestN_ofAKind n cards =
+    let inline bestN_ofAKind n cards =
         fastCountRanks n cards
-        // if Array.length cards < n then
-        //     None
-        // else
-        //     cards
-        //     |> Array.groupBy (fun (_, rank) -> rank)
-        //     |> Array.map (fun (k, v) -> (k, Set.ofSeq v))
-        //     |> Array.filter (fun (_, cards) -> Set.count cards = n)
-        //     |> Array.map (fun (rank, _) -> rank)
-        //     |> fastArrayMax
 
     let bestHighCard =
         visibleCards
@@ -262,16 +283,8 @@ let bestPokerHand (visibleCards: Card Set) =
         |> safeArrayMax
         |> Option.map Flush
 
-
     let bestStraight =
-        visibleCards
-        |> Array.map snd
-        |> Seq.sortBy (fun rank -> rank)
-        |> Seq.windowed 5
-        |> Seq.filter (fun ranks -> Seq.forall2 (fun a b -> nextRank a = b) ranks (Seq.skip 1 ranks))
-        |> Seq.map (fun ranks -> Seq.max ranks)
-        |> safeSeqMax
-        |> Option.map Straight
+        fastBestStraight visibleCards 
 
     let bestStraightFlush =
         match bestFlush, bestStraight with
@@ -402,6 +415,7 @@ let simulatePossibleHands simulations myHand visibleCards numberOfOpponents =
         let opponentHands = opponentHands |> List.chunkBySize 2
         let extraVisibleCards = deck |> List.take (5 - List.length visibleCards)
 
+        let counterArray = Array.zeroCreate 13
         let winningHand =
             winningHand (myHand :: opponentHands) (visibleCards @ extraVisibleCards)
 
