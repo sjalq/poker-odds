@@ -1,7 +1,7 @@
 ﻿open System
 
 // For more information see https://aka.ms/fsharp-console-apps
-printfn "Hello from F#"
+printfn "Hello from F# !"
 
 type Suit =
     | Spades
@@ -23,6 +23,39 @@ type Rank =
     | Queen
     | King
     | Ace
+
+    member x.toInt =
+        match x with
+        | Two -> 2
+        | Three -> 3
+        | Four -> 4
+        | Five -> 5
+        | Six -> 6
+        | Seven -> 7
+        | Eight -> 8
+        | Nine -> 9
+        | Ten -> 10
+        | Jack -> 11
+        | Queen -> 12
+        | King -> 13
+        | Ace -> 14
+
+    static member fromInt i =
+        match i with
+        | 2 -> Two
+        | 3 -> Three
+        | 4 -> Four
+        | 5 -> Five
+        | 6 -> Six
+        | 7 -> Seven
+        | 8 -> Eight
+        | 9 -> Nine
+        | 10 -> Ten
+        | 11 -> Jack
+        | 12 -> Queen
+        | 13 -> King
+        | 14 -> Ace
+        | _ -> failwith "Invalid rank"
 
 
 type Card = Suit * Rank
@@ -124,12 +157,13 @@ let safeArrayMax arr =
 
 
 let inline fastArrayMax arr =
-    if Array.isEmpty arr then 
+    if Array.isEmpty arr then
         None
     else
-        for i in 1..(Array.length arr - 1) do
+        for i in 1 .. (Array.length arr - 1) do
             if arr.[i] > arr.[0] then
                 arr.[0] <- arr.[i]
+
         arr.[0] |> Some
 
 
@@ -146,21 +180,42 @@ let setGroupBy f set =
     |> Set.ofArray
 
 
+let fastCountRanks n (cards: Card array) =
+    let counts = Array.zeroCreate 13
+
+    for i in 0 .. (Array.length cards - 1) do
+        let (_, rank) = cards.[i]
+        let rankInt = rank.toInt - 2
+        counts.[rankInt] <- counts.[rankInt] + 1
+
+    let mutable highestRankWithN = 0
+    for i in 0 .. 12 do
+        if counts.[i] = n then
+            highestRankWithN <- i + 2
+
+    if highestRankWithN < 2 then
+        None
+    else
+        highestRankWithN 
+        // |> log "highestRankWithN"
+        |> Rank.fromInt 
+        |> Some
+
+
 let bestPokerHand (visibleCards: Card Set) =
-    // visibleCards |> log "visibleCards" |> ignore
     let visibleCards = visibleCards |> Set.toArray
 
-
     let bestN_ofAKind n cards =
-        if Array.length cards < n then 
-            None
-        else
-            cards
-            |> Array.groupBy (fun (_, rank) -> rank)
-            |> Array.map (fun (k, v) -> (k, Set.ofSeq v))
-            |> Array.filter (fun (_, cards) -> Set.count cards = n)
-            |> Array.map (fun (rank, _) -> rank)
-            |> fastArrayMax
+        fastCountRanks n cards
+        // if Array.length cards < n then
+        //     None
+        // else
+        //     cards
+        //     |> Array.groupBy (fun (_, rank) -> rank)
+        //     |> Array.map (fun (k, v) -> (k, Set.ofSeq v))
+        //     |> Array.filter (fun (_, cards) -> Set.count cards = n)
+        //     |> Array.map (fun (rank, _) -> rank)
+        //     |> fastArrayMax
 
     let bestHighCard =
         visibleCards
@@ -182,10 +237,7 @@ let bestPokerHand (visibleCards: Card Set) =
     let bestTwoPair =
         let secondBestPair =
             match bestPair with
-            | Some (Pair rank) ->
-                visibleCards
-                |> removeRank rank
-                |> bestN_ofAKind 2
+            | Some (Pair rank) -> visibleCards |> removeRank rank |> bestN_ofAKind 2
             | _ -> None
 
         match bestPair, secondBestPair with
@@ -195,10 +247,7 @@ let bestPokerHand (visibleCards: Card Set) =
     let bestFullHouse =
         let pair =
             match bestThreeOfAKind with
-            | Some (ThreeOfAKind rank) ->
-                visibleCards
-                |> removeRank rank
-                |> bestN_ofAKind 2
+            | Some (ThreeOfAKind rank) -> visibleCards |> removeRank rank |> bestN_ofAKind 2
             | _ -> None
 
         match bestPair, bestThreeOfAKind with
@@ -277,10 +326,14 @@ let randomHands myHand visibleCards numberOfOpponents =
 
 
 let winningHand hands visibleCards =
+    let visibleSet = (Set.ofList visibleCards)
+
     hands
-    |> List.map (fun hand -> bestPokerHand (Set.ofList (hand @ visibleCards)))
+    |> List.map (fun hand ->
+        let set = Set.union visibleSet (Set.ofList hand)
+        bestPokerHand set)
     |> safeSeqMax
- 
+
 let stringToSuit s =
     match s with
     | "S" -> Ok Spades
@@ -348,7 +401,9 @@ let simulatePossibleHands simulations myHand visibleCards numberOfOpponents =
         let (opponentHands, deck) = pick (2 * numberOfOpponents) deck
         let opponentHands = opponentHands |> List.chunkBySize 2
         let extraVisibleCards = deck |> List.take (5 - List.length visibleCards)
-        let winningHand = winningHand (myHand :: opponentHands) (visibleCards @ extraVisibleCards)
+
+        let winningHand =
+            winningHand (myHand :: opponentHands) (visibleCards @ extraVisibleCards)
 
         match winningHand with
         | Some hand when hand = bestPokerHand (Set.ofList (myHand @ visibleCards)) -> 1
@@ -362,7 +417,7 @@ let startTimer () =
     timer.Start()
     timer
 
-let stopTimer (timer:Diagnostics.Stopwatch) =
+let stopTimer (timer: Diagnostics.Stopwatch) =
     timer.Stop()
     timer.ElapsedMilliseconds
 
@@ -385,7 +440,10 @@ let main argv =
             printfn "Number of simulations: %d" simulations
             printfn "My best hand: %A" (bestPokerHand (Set.ofList (myHand @ visibleCards)))
             printfn "Probability of winning: %f" probability
-            float simulations / float (stopTimer timer)  |> log "Time" |> ignore
+
+            float simulations / float (stopTimer timer)
+            |> log "Time"
+            |> ignore
 
             0
         | Error e, _, _, _ ->
