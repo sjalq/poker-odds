@@ -92,23 +92,28 @@ let nextRank rank =
     | King -> Ace
 
 
+let (<^>) head tail = Array.append [| head |] tail
+
+let (<!!!!>) a b = Array.concat [| a; b |]
+
+
 let fullDeck =
-    [ for suit in [ Spades; Hearts; Diamonds; Clubs ] do
-          for rank in
-              [ Ace
-                Two
-                Three
-                Four
-                Five
-                Six
-                Seven
-                Eight
-                Nine
-                Ten
-                Jack
-                Queen
-                King ] do
-              yield (suit, rank) ]
+    [| for suit in [ Spades; Hearts; Diamonds; Clubs ] do
+           for rank in
+               [ Ace
+                 Two
+                 Three
+                 Four
+                 Five
+                 Six
+                 Seven
+                 Eight
+                 Nine
+                 Ten
+                 Jack
+                 Queen
+                 King ] do
+               yield (suit, rank) |]
 
 
 let log msg v =
@@ -121,9 +126,10 @@ let rnd = System.Random()
 let slowShuffle deck =
     deck |> List.sortBy (fun _ -> rnd.Next())
 
-let shuffle deck =
-    let deck = deck |> List.toArray
+let shuffle (deck: Card array) =
+    //let deck = deck |> List.toArray
     let mutable i = deck.Length
+
     while i > 1 do
         let j = rnd.Next(i)
         i <- i - 1
@@ -131,21 +137,21 @@ let shuffle deck =
         deck.[i] <- deck.[j]
         deck.[j] <- temp
 
-    deck |> Array.toList
+    deck //|> Array.toList
 
 let pick n deck =
-    let picked = deck |> List.take n
-    let rest = deck |> List.skip n
+    let picked = deck |> Array.take n
+    let rest = deck |> Array.skip n
     (picked, rest)
 
 
 let removeCard card deck =
-    deck |> List.filter (fun c -> c <> card)
+    deck |> Array.filter (fun c -> c <> card)
 
 
 let removeCards cards deck =
     cards
-    |> List.fold (fun d c -> removeCard c d) deck
+    |> Array.fold (fun d c -> removeCard c d) deck
 
 
 let removeRank rank deck =
@@ -192,7 +198,7 @@ let setGroupBy f set =
     |> Set.ofArray
 
 
-let inline fastCountRanks (counts:Int32 array) n (cards: Card array) =
+let inline fastCountRanks (counts: Int32 array) n (cards: Card array) =
     //let counts = Array.zeroCreate 13
 
     for i in 0 .. (Array.length cards - 1) do
@@ -201,18 +207,17 @@ let inline fastCountRanks (counts:Int32 array) n (cards: Card array) =
         counts.[rankInt] <- counts.[rankInt] + 1
 
     let mutable highestRankWithN = 0
-    for i in 0 .. 12 do
+
+    for i in 0..12 do
         if counts.[i] = n then
             highestRankWithN <- i + 2
 
     if highestRankWithN < 2 then
         None
     else
-        highestRankWithN 
-        |> Rank.fromInt 
-        |> Some
+        highestRankWithN |> Rank.fromInt |> Some
 
-let inline fastBestStraight (counts:Int32 array) (cards: Card array) =
+let inline fastBestStraight (counts: Int32 array) (cards: Card array) =
     //let counts = Array.zeroCreate 13
 
     for i in 0 .. (Array.length cards - 1) do
@@ -221,8 +226,13 @@ let inline fastBestStraight (counts:Int32 array) (cards: Card array) =
         counts.[rankInt] <- counts.[rankInt] + 1
 
     let mutable highestStraightRank = 0
-    for i in 0 .. 8 do
-        if counts.[i] > 0 && counts.[i + 1] > 0 && counts.[i + 2] > 0 && counts.[i + 3] > 0 && counts.[i + 4] > 0 then
+
+    for i in 0..8 do
+        if counts.[i] > 0
+           && counts.[i + 1] > 0
+           && counts.[i + 2] > 0
+           && counts.[i + 3] > 0
+           && counts.[i + 4] > 0 then
             highestStraightRank <- i + 2 + 4
 
     if highestStraightRank < 6 then
@@ -233,7 +243,7 @@ let inline fastBestStraight (counts:Int32 array) (cards: Card array) =
         |> Straight
         |> Some
 
-let slowBestStraight cards = 
+let slowBestStraight cards =
     cards
     |> Array.map snd
     |> Seq.sortBy (fun rank -> rank)
@@ -248,8 +258,7 @@ let bestPokerHand (visibleCards: Card Set) =
     let visibleCards = visibleCards |> Set.toArray
     let counts = Array.zeroCreate 13
 
-    let bestN_ofAKind n cards =
-        fastCountRanks counts n cards
+    let bestN_ofAKind n cards = fastCountRanks counts n cards
 
     let bestHighCard =
         visibleCards
@@ -296,8 +305,7 @@ let bestPokerHand (visibleCards: Card Set) =
         |> safeArrayMax
         |> Option.map Flush
 
-    let bestStraight =
-        fastBestStraight counts visibleCards 
+    let bestStraight = fastBestStraight counts visibleCards
 
     let bestStraightFlush =
         match bestFlush, bestStraight with
@@ -352,11 +360,11 @@ let randomHands myHand visibleCards numberOfOpponents =
 
 
 let winningHand hands visibleCards =
-    let visibleSet = (Set.ofList visibleCards)
+    let visibleSet = (Set.ofArray visibleCards)
 
     hands
-    |> List.map (fun hand ->
-        let set = Set.union visibleSet (Set.ofList hand)
+    |> Array.map (fun hand ->
+        let set = Set.union visibleSet (Set.ofArray hand)
         bestPokerHand set)
     |> safeSeqMax
 
@@ -385,11 +393,11 @@ let stringToRank s =
     | "A" -> Ok Ace
     | _ -> Error "Invalid rank"
 
-let stringToCard (s: String) =
+let stringToCard (s: String) : Result<Card, string>  =
     match s.ToCharArray() with
     | [| rank; suit |] ->
         match stringToRank (string rank), stringToSuit (string suit) with
-        | Ok rank, Ok suit -> Ok(suit, rank)
+        | Ok rank, Ok suit -> Ok (suit, rank)
         | Error e1, Error e2 -> Error(e1 + " " + e2)
         | Error e, _ -> Error e
         | _, Error e -> Error e
@@ -401,11 +409,11 @@ let stringToCards (s: String) =
     |> Array.fold
         (fun acc card ->
             match acc, card with
-            | Ok cards, Ok card -> Ok(card :: cards)
+            | Ok cards, Ok card -> Ok(card <^> cards)
             | Error e1, Error e2 -> Error(e1 + " " + e2)
             | Error e, _ -> Error e
             | _, Error e -> Error e)
-        (Ok [])
+        (Ok [||])
 
 
 let safeStringToInt32 s =
@@ -413,6 +421,8 @@ let safeStringToInt32 s =
         Ok(Int32.Parse s)
     with
     | _ -> Error "Invalid number"
+
+
 
 
 let simulatePossibleHands simulations myHand visibleCards numberOfOpponents =
@@ -423,17 +433,17 @@ let simulatePossibleHands simulations myHand visibleCards numberOfOpponents =
 
     [| 1..simulations |]
     |> Array.Parallel.map (fun _ ->
-    //|> Array.map (fun _ ->
+        //|> Array.map (fun _ ->
         let deck = remainingDeck |> shuffle
         let (opponentHands, deck) = pick (2 * numberOfOpponents) deck
-        let opponentHands = opponentHands |> List.chunkBySize 2
-        let extraVisibleCards = deck |> List.take (5 - List.length visibleCards)
+        let opponentHands = opponentHands |> Array.chunkBySize 2
+        let extraVisibleCards = deck |> Array.take (5 - Array.length visibleCards)
 
         let winningHand =
-            winningHand (myHand :: opponentHands) (visibleCards @ extraVisibleCards)
+            winningHand (myHand <^> opponentHands) (visibleCards <!!!!> extraVisibleCards)
 
         match winningHand with
-        | Some hand when hand = bestPokerHand (Set.ofList (myHand @ visibleCards)) -> 1
+        | Some hand when hand = bestPokerHand (Set.ofArray (myHand <!!!!> visibleCards)) -> 1
         | _ -> 0)
     |> Array.sum
 
@@ -465,7 +475,7 @@ let main argv =
             printfn "Visible cards: %A" visibleCards
             printfn "Number of opponents: %d" numberOfOpponents
             printfn "Number of simulations: %d" simulations
-            printfn "My best hand: %A" (bestPokerHand (Set.ofList (myHand @ visibleCards)))
+            printfn "My best hand: %A" (bestPokerHand (Set.ofArray (myHand <!!!!> visibleCards)))
             printfn "Probability of winning: %f" probability
 
             float simulations / float (stopTimer timer)
