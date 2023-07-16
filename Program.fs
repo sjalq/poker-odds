@@ -83,8 +83,9 @@ let log msg v =
     v
 
 
+let rnd = System.Random()
+
 let shuffle deck =
-    let rnd = System.Random()
     deck |> List.sortBy (fun _ -> rnd.Next())
 
 let pick n deck =
@@ -103,7 +104,7 @@ let removeCards cards deck =
 
 
 let removeRank rank deck =
-    deck |> List.filter (fun (_, r) -> r <> rank)
+    deck |> Array.filter (fun (_, r) -> r <> rank)
 
 
 let removeSuit suit deck =
@@ -114,6 +115,23 @@ let safeSeqMax seq =
     match Seq.isEmpty seq with
     | true -> None
     | false -> Some(Seq.max seq)
+
+
+let safeArrayMax arr =
+    match Array.isEmpty arr with
+    | true -> None
+    | false -> Some(Array.max arr)
+
+
+let inline fastArrayMax arr =
+    if Array.isEmpty arr then 
+        None
+    else
+        for i in 1..(Array.length arr - 1) do
+            if arr.[i] > arr.[0] then
+                arr.[0] <- arr.[i]
+        arr.[0] |> Some
+
 
 let safeSeqMaxBy f seq =
     match Seq.isEmpty seq with
@@ -128,16 +146,21 @@ let setGroupBy f set =
     |> Set.ofArray
 
 
-let rec bestPokerHand (visibleCards: Card Set) =
+let bestPokerHand (visibleCards: Card Set) =
     // visibleCards |> log "visibleCards" |> ignore
+    let visibleCards = visibleCards |> Set.toArray
 
 
     let bestN_ofAKind n cards =
-        cards
-        |> setGroupBy (fun (_, rank) -> rank)
-        |> Set.filter (fun (_, cards) -> Set.count cards = n)
-        |> Set.map (fun (rank, _) -> rank)
-        |> safeSeqMax
+        if Array.length cards < n then 
+            None
+        else
+            cards
+            |> Array.groupBy (fun (_, rank) -> rank)
+            |> Array.map (fun (k, v) -> (k, Set.ofSeq v))
+            |> Array.filter (fun (_, cards) -> Set.count cards = n)
+            |> Array.map (fun (rank, _) -> rank)
+            |> fastArrayMax
 
     let bestHighCard =
         visibleCards
@@ -161,9 +184,7 @@ let rec bestPokerHand (visibleCards: Card Set) =
             match bestPair with
             | Some (Pair rank) ->
                 visibleCards
-                |> Set.toList
                 |> removeRank rank
-                |> Set.ofList
                 |> bestN_ofAKind 2
             | _ -> None
 
@@ -176,9 +197,7 @@ let rec bestPokerHand (visibleCards: Card Set) =
             match bestThreeOfAKind with
             | Some (ThreeOfAKind rank) ->
                 visibleCards
-                |> Set.toList
                 |> removeRank rank
-                |> Set.ofList
                 |> bestN_ofAKind 2
             | _ -> None
 
@@ -188,17 +207,16 @@ let rec bestPokerHand (visibleCards: Card Set) =
 
     let bestFlush =
         visibleCards
-        |> Set.toSeq
-        |> Seq.groupBy (fun (suit, _) -> suit)
-        |> Seq.filter (fun (_, cards) -> Seq.length cards >= 5)
-        |> Seq.map (fun (suit, _) -> suit)
-        |> safeSeqMax
+        |> Array.groupBy (fun (suit, _) -> suit)
+        |> Array.filter (fun (_, cards) -> Seq.length cards >= 5)
+        |> Array.map (fun (suit, _) -> suit)
+        |> safeArrayMax
         |> Option.map Flush
 
 
     let bestStraight =
         visibleCards
-        |> Set.map snd
+        |> Array.map snd
         |> Seq.sortBy (fun rank -> rank)
         |> Seq.windowed 5
         |> Seq.filter (fun ranks -> Seq.forall2 (fun a b -> nextRank a = b) ranks (Seq.skip 1 ranks))
@@ -261,10 +279,8 @@ let randomHands myHand visibleCards numberOfOpponents =
 let winningHand hands visibleCards =
     hands
     |> List.map (fun hand -> bestPokerHand (Set.ofList (hand @ visibleCards)))
-    //|> log "hands"
     |> safeSeqMax
-    //|> log "winningHand"
-
+ 
 let stringToSuit s =
     match s with
     | "S" -> Ok Spades
@@ -326,10 +342,9 @@ let simulatePossibleHands simulations myHand visibleCards numberOfOpponents =
         |> removeCards myHand
         |> removeCards visibleCards
 
-    [ 1..simulations ]
-    |> List.map (fun _ ->
+    [| 1..simulations |]
+    |> Array.Parallel.map (fun _ ->
         let deck = remainingDeck |> shuffle
-        // deck |> List.length |> log "deck length" |> ignore
         let (opponentHands, deck) = pick (2 * numberOfOpponents) deck
         let opponentHands = opponentHands |> List.chunkBySize 2
         let extraVisibleCards = deck |> List.take (5 - List.length visibleCards)
@@ -338,7 +353,7 @@ let simulatePossibleHands simulations myHand visibleCards numberOfOpponents =
         match winningHand with
         | Some hand when hand = bestPokerHand (Set.ofList (myHand @ visibleCards)) -> 1
         | _ -> 0)
-    |> List.sum
+    |> Array.sum
 
 
 
