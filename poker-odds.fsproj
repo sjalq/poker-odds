@@ -1,13 +1,17 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net7.0</TargetFramework>
     <RootNamespace>poker_odds</RootNamespace>
   </PropertyGroup>
-
   <ItemGroup>
     <Compile Include="Program.fs" />
+    <Compile Include="Tests.fs" />
+    <Compile Include="Main.fs" />
   </ItemGroup>
-
+  <ItemGroup>
+    <PackageReference Include="FsCheck" Version="2.16.6" />
+    <PackageReference Include="FsCheck.XUnit" Version="2.16.6" />
+    <PackageReference Include="Xunit" Version="2.5.0" />
+  </ItemGroup>
 </Project>

@@ -1,4 +1,6 @@
-﻿open System
+﻿module Program
+
+open System
 
 // For more information see https://aka.ms/fsharp-console-apps
 printfn "Hello from F# !"
@@ -92,9 +94,10 @@ let nextRank rank =
     | King -> Ace
 
 
-let (<^>) head tail = Array.append [| head |] tail
+let (<^>) head tail = 
+   Array.append [| head |] tail
 
-let (<!!!!>) a b = Array.concat [| a; b |]
+let (<!>) a b = Array.concat [| a; b |]
 
 
 let fullDeck =
@@ -440,10 +443,10 @@ let simulatePossibleHands simulations myHand visibleCards numberOfOpponents =
         let extraVisibleCards = deck |> Array.take (5 - Array.length visibleCards)
 
         let winningHand =
-            winningHand (myHand <^> opponentHands) (visibleCards <!!!!> extraVisibleCards)
+            winningHand (myHand <^> opponentHands) (visibleCards <!> extraVisibleCards)
 
         match winningHand with
-        | Some hand when hand = bestPokerHand (Set.ofArray (myHand <!!!!> visibleCards)) -> 1
+        | Some hand when hand = bestPokerHand (Set.ofArray (myHand <!> visibleCards)) -> 1
         | _ -> 0)
     |> Array.sum
 
@@ -457,44 +460,3 @@ let startTimer () =
 let stopTimer (timer: Diagnostics.Stopwatch) =
     timer.Stop()
     timer.ElapsedMilliseconds
-
-[<EntryPoint>]
-let main argv =
-    match argv with
-    | [| myHand; visibleCards; numberOfOpponents; simulations |] ->
-        match stringToCards myHand,
-              stringToCards visibleCards,
-              safeStringToInt32 numberOfOpponents,
-              safeStringToInt32 simulations
-            with
-        | Ok myHand, Ok visibleCards, Ok numberOfOpponents, Ok simulations ->
-            let timer = startTimer ()
-            let wins = simulatePossibleHands simulations myHand visibleCards numberOfOpponents
-            let probability = float wins / float simulations
-            printfn "My hand: %A" myHand
-            printfn "Visible cards: %A" visibleCards
-            printfn "Number of opponents: %d" numberOfOpponents
-            printfn "Number of simulations: %d" simulations
-            printfn "My best hand: %A" (bestPokerHand (Set.ofArray (myHand <!!!!> visibleCards)))
-            printfn "Probability of winning: %f" probability
-
-            float simulations / float (stopTimer timer)
-            |> log "Time"
-            |> ignore
-
-            0
-        | Error e, _, _, _ ->
-            printfn "Error parsing your hand: %s" e
-            1
-        | _, Error e, _, _ ->
-            printfn "Error parsing visible cards: %s" e
-            1
-        | _, _, Error e, _ ->
-            printfn "Error parsing number of opponents: %s" e
-            1
-        | _, _, _, Error e ->
-            printfn "Error parsing number of simulations: %s" e
-            1
-    | _ ->
-        printfn "Usage: poker.exe <my hand> <visible cards> <number of opponents>"
-        1
